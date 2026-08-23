@@ -903,7 +903,7 @@ Evaluation сравнивает:
 После загрузки здесь будет указана ссылка:
 
 ```text
-https://huggingface.co/0RekH/gpt2-steering-denoiser-bucket
+https://huggingface.co/0RekH/gpt2-steering-denoiser/tree/main
 ```
 
 ---
