@@ -130,8 +130,7 @@ Perplexity измеряется clean GPT-2 только на сгенериро
 ```math
 \mathrm{PPL}
 =
-\exp
-\left(
+\exp\left(
 -\frac{1}{N}
 \sum_{i=1}^{N}
 \log p(x_i \mid x_{<i})
@@ -915,7 +914,7 @@ https://huggingface.co/<username>/<model-repository>
 Полный исследовательский отчёт находится в:
 
 ```text
-report/main.tex
+report/report.tex
 ```
 
 Он содержит:
