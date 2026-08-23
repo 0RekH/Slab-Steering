@@ -871,7 +871,7 @@ pip install -r requirements.txt
 Запуск training script improved interpolation model:
 
 ```bash
-python src/train_improved_interpolation.py
+python src/tr_loss_um_1.py
 ```
 
 После обучения создаётся checkpoint denoiser.
