@@ -126,14 +126,13 @@ C(x) = \max_t z_{t,17363}
 ### Completion-only perplexity
 
 Perplexity измеряется clean GPT-2 только на сгенерированном продолжении, без prompt-токенов.
-
 ```math
 \mathrm{PPL}
 =
 \exp\left(
 -\frac{1}{N}
 \sum_{i=1}^{N}
-\log p(x_i \mid x_{<i})
+\log p(x_i \mid x_1,\ldots,x_{i-1})
 \right)
 ```
 
