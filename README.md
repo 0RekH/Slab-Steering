@@ -2,7 +2,9 @@
 
 Этот репозиторий содержит решение исследовательского задания по interpretability, посвящённого улучшению activation steering с помощью обучаемых denoiser / repair-модулей.
 
-Основная идея работы заключается в следующем: стандартный activation steering позволяет усиливать выбранный семантический концепт в скрытых представлениях языковой модели, однако при слишком сильной интервенции качество генерации резко ухудшается. В этой работе исследуется, можно ли восстановить скрытые состояния после steering так, чтобы сохранить полезный семантический эффект и одновременно уменьшить деградацию качества текста.
+Основная идея работы заключается в следующем: стандартный activation steering позволяет усиливать выбранный семантический концепт в скрытых представлениях языковой модели, однако при слишком сильной интервенции качество генерации резко ухудшается.
+
+В этой работе исследуется, можно ли восстановить скрытые состояния после steering так, чтобы сохранить полезный семантический эффект и одновременно уменьшить деградацию качества текста.
 
 В качестве базовой модели используется GPT-2 Small, а steering-направление извлекается из Sparse Autoencoder.
 
@@ -12,24 +14,36 @@
 
 Стандартный activation steering модифицирует скрытое состояние модели следующим образом:
 
-\[
-\widetilde h = h + \alpha v,
-\]
+$$
+\widetilde h = h + \alpha v
+$$
 
 где:
 
-- \(h\) — скрытое представление модели;
-- \(v\) — steering direction;
-- \(\alpha\) — сила интервенции.
+- $h$ — скрытое представление модели;
+- $v$ — steering direction;
+- $\alpha$ — сила интервенции.
 
-При небольших значениях \(\alpha\) можно усилить нужный концепт практически без потери качества. Однако при увеличении \(\alpha\) активации начинают уходить из естественного распределения hidden states модели, что приводит к росту perplexity, ухудшению связности текста и, в предельном случае, к полному collapse генерации.
+При небольших значениях $\alpha$ можно усилить нужный концепт практически без потери качества.
+
+Однако при увеличении $\alpha$ активации начинают уходить из естественного распределения hidden states модели, что приводит к росту perplexity, ухудшению связности текста и, в предельном случае, к полному collapse генерации.
 
 Цель работы — улучшить компромисс между двумя величинами:
 
 - выраженностью целевого концепта;
 - качеством генерации.
 
-Иными словами, хочется получить одновременно более высокий concept score и более низкий perplexity.
+Иными словами, хочется получить одновременно:
+
+$$
+\text{Concept score} \uparrow
+$$
+
+и
+
+$$
+\text{PPL} \downarrow
+$$
 
 ---
 
@@ -75,15 +89,19 @@
 
 Таким образом, этот feature хорошо отделяет science-тексты от контрольных и используется в дальнейшем как steering direction.
 
-Steering vector определяется как соответствующий decoder vector SAE.
+Steering vector определяется как соответствующий decoder vector SAE:
+
+$$
+v = W_{\mathrm{dec}}[17363]
+$$
 
 Норма вектора близка к единице:
 
-\[
-\|v\|_2 \approx 1.
-\]
+$$
+\|v\|_2 \approx 1
+$$
 
-Это позволяет интерпретировать \(\alpha\) как приблизительную норму внесённой perturbation.
+Это позволяет интерпретировать $\alpha$ как приблизительную норму внесённой perturbation.
 
 ---
 
@@ -95,17 +113,34 @@ Steering vector определяется как соответствующий d
 
 После генерации текст повторно прогоняется через clean GPT-2 без steering и без denoiser.
 
-На седьмом блоке вычисляются SAE activations, после чего берётся максимальная активация feature 17363 по токенам.
+На седьмом блоке вычисляются SAE activations, после чего берётся максимальная активация feature 17363 по токенам:
+
+$$
+C(x) = \max_t z_{t,17363}
+$$
 
 Это позволяет оценить, насколько сам сгенерированный текст выражает целевой concept.
+
+---
 
 ### Completion-only perplexity
 
 Perplexity измеряется clean GPT-2 только на сгенерированном продолжении, без prompt-токенов.
 
-Это основная метрика качества генерации.
+$$
+\mathrm{PPL}
+=
+\exp
+\left(
+-\frac{1}{N}
+\sum_{i=1}^{N}
+\log p(x_i \mid x_{<i})
+\right)
+$$
 
 Чем меньше PPL, тем более естественным для GPT-2 является полученный текст.
+
+---
 
 ### Repetition metrics
 
@@ -116,7 +151,23 @@ Perplexity измеряется clean GPT-2 только на сгенериро
 - Dist-3;
 - Rep-3.
 
-Они используются для отслеживания повторов и деградации разнообразия текста.
+Для $n$-грамм:
+
+$$
+\mathrm{dist}_n
+=
+\frac{
+\#\{\text{unique n-grams}\}
+}{
+\#\{\text{all n-grams}\}
+}
+$$
+
+и
+
+$$
+\mathrm{rep}_3 = 1 - \mathrm{dist}_3
+$$
 
 ---
 
@@ -146,9 +197,9 @@ Perplexity измеряется clean GPT-2 только на сгенериро
 
 Интервенция выполнялась напрямую:
 
-\[
-h \rightarrow h + \alpha v.
-\]
+$$
+h \rightarrow h + \alpha v
+$$
 
 Основные результаты:
 
@@ -165,15 +216,15 @@ h \rightarrow h + \alpha v.
 
 Из этих результатов видно несколько режимов.
 
-При \(\alpha=4\) и \(\alpha=8\) concept score растёт почти бесплатно.
+При $\alpha=4$ и $\alpha=8$ concept score растёт почти без ухудшения PPL.
 
-При \(\alpha=16\) semantic effect становится сильным, а PPL растёт умеренно.
+При $\alpha=16$ semantic effect становится сильным, а PPL растёт умеренно.
 
-При \(\alpha=32\) concept остаётся высоким, но качество уже заметно ухудшается.
+При $\alpha=32$ concept остаётся высоким, но качество уже заметно ухудшается.
 
-При больших значениях \(\alpha\) происходит collapse: perplexity резко увеличивается, а целевой concept исчезает.
+При больших значениях $\alpha$ происходит collapse: perplexity резко увеличивается, а целевой concept исчезает.
 
-Практически полезный диапазон raw steering находится примерно между \(\alpha=8\) и \(\alpha=32\).
+Практически полезный диапазон raw steering находится примерно между $\alpha=8$ и $\alpha=32$.
 
 ---
 
@@ -183,23 +234,54 @@ h \rightarrow h + \alpha v.
 
 Training corruption:
 
-\[
-x = h + \epsilon,
-\]
+$$
+x = h + \epsilon
+$$
 
-где noise является изотропным Gaussian.
+где
+
+$$
+\epsilon \sim \mathcal N(0,\sigma^2 I)
+$$
+
+Уровень шума задаётся через ожидаемую норму perturbation:
+
+$$
+\sigma = \frac{r}{\sqrt{768}}
+$$
 
 Архитектура:
 
-\[
-(768 + 64) \rightarrow 1536 \rightarrow 1536 \rightarrow 768.
-\]
+$$
+(768 + 64)
+\rightarrow
+1536
+\rightarrow
+1536
+\rightarrow
+768
+$$
 
 64 дополнительных координаты соответствуют embedding уровня шума.
 
-Denoiser имеет residual-форму и предсказывает correction к входной активации.
+Denoiser имеет residual-форму:
 
-Loss — обычный reconstruction MSE между восстановленной и clean activation.
+$$
+D_\theta(x,\sigma)
+=
+x + \Delta_\theta(x,\sigma)
+$$
+
+Loss — обычный reconstruction MSE:
+
+$$
+\mathcal L_{\mathrm{MSE}}
+=
+\mathbb E
+\left[
+\|D_\theta(h+\epsilon,\sigma)-h\|_2^2
+\right]
+$$
 
 Важно, что target steering direction при обучении не используется.
 
@@ -220,12 +302,12 @@ Loss — обычный reconstruction MSE между восстановленн
 
 ### Steering results
 
-При \(\alpha=16\) наблюдается небольшой matched-alpha improvement:
+При $\alpha=16$ наблюдается небольшой matched-alpha improvement:
 
 - concept: 7.1939 → 7.2884;
 - PPL: 14.4280 → 14.3966.
 
-Однако начиная примерно с \(\alpha=32\) denoiser начинает резко ухудшать генерацию.
+Однако начиная примерно с $\alpha=32$ denoiser начинает резко ухудшать генерацию.
 
 Этот эксперимент показывает, что хорошая reconstruction на random Gaussian noise не гарантирует хорошего переноса на structured semantic steering.
 
@@ -237,34 +319,115 @@ Loss — обычный reconstruction MSE между восстановленн
 
 Идея состояла в том, чтобы не пытаться восстановить исходную активацию напрямую, а исправлять последствия perturbation после того, как они распространились через несколько transformer-блоков.
 
-Архитектура представляет собой gated bottleneck.
+Training corruption на седьмом блоке:
+
+$$
+h_7^{\mathrm{noisy}}
+=
+h_7 + \epsilon
+$$
+
+На девятом блоке используется gated bottleneck.
 
 Сначала входная активация вместе с embedding уровня шума проходит через encoder:
 
-\[
-(768 + 64) \rightarrow 1024 \rightarrow 256.
-\]
+$$
+z
+=
+E_\theta([x,\mathrm{emb}(\sigma)])
+$$
 
-После этого из bottleneck representation вычисляются:
+Архитектура bottleneck:
 
-- correction vector;
-- scalar gate.
+$$
+(768+64)
+\rightarrow
+1024
+\rightarrow
+256
+$$
 
-Итоговая repaired activation имеет вид:
+После этого из latent representation вычисляется correction:
 
-\[
-x_{\text{repaired}} = x + g \Delta h.
-\]
+$$
+\Delta h
+=
+H_{\mathrm{corr}}(z)
+$$
 
-Gate должен был позволить сети адаптивно выбирать силу вмешательства.
+и gate:
+
+$$
+g
+=
+\mathrm{sigmoid}(H_{\mathrm{gate}}(z))
+$$
+
+Итоговая repaired activation:
+
+$$
+R_\theta(x,\sigma)
+=
+x + g\Delta h
+$$
+
+Gate должен позволять сети адаптивно выбирать силу вмешательства.
 
 ### Training objective
 
-Использовалась комбинация:
+Использовалась комбинация нескольких loss terms:
 
-- language modeling loss;
-- correction penalty;
-- preservation loss.
+$$
+\mathcal L
+=
+\mathcal L_{\mathrm{LM}}
++
+10^{-3}\mathcal L_{\mathrm{corr}}
++
+0.5\mathcal L_{\mathrm{preserve}}
+$$
+
+Для анализа downstream displacement вводились:
+
+$$
+d_{\mathrm{raw}}
+=
+h_9^{\mathrm{raw}}
+-
+h_9^{\mathrm{clean}}
+$$
+
+и
+
+$$
+d_{\mathrm{rep}}
+=
+h_9^{\mathrm{repaired}}
+-
+h_9^{\mathrm{clean}}
+$$
+
+Коэффициент сохранения направления:
+
+$$
+\rho
+=
+\frac{
+\langle d_{\mathrm{rep}}, d_{\mathrm{raw}} \rangle
+}{
+\|d_{\mathrm{raw}}\|_2^2
+}
+$$
+
+Preservation penalty:
+
+$$
+\mathcal L_{\mathrm{preserve}}
+=
+\max(0,0.5-\rho)^2
+$$
+
+### Training validation
 
 На Gaussian validation результат выглядел очень сильным:
 
@@ -272,19 +435,39 @@ Gate должен был позволить сети адаптивно выби
 - noisy PPL: 90.4511;
 - repaired PPL: 47.4812.
 
-То есть repair не только восстанавливал качество после noise, но и давал PPL ниже clean baseline.
+Средний gate:
+
+$$
+\bar g \approx 0.906
+$$
+
+Коэффициент сохранения направления:
+
+$$
+\rho \approx 0.983
+$$
+
+То есть repair не только восстанавливал качество после random noise, но и давал PPL ниже clean baseline.
 
 ### Failure mode
 
 На target steering эксперимент оказался неудачным.
 
-В рабочем диапазоне \(\alpha\) concept score снижался, а PPL обычно рос.
+В рабочем диапазоне $\alpha$ concept score снижался, а PPL обычно рос.
 
 Дополнительный анализ показал:
 
 - gate почти всегда был близок к единице;
 - correction norm была очень большой;
 - сеть фактически превращалась в residual adapter, а не в минимальный repair.
+
+Типичные значения correction norm находились примерно в диапазоне:
+
+$$
+\|\Delta h\|_2
+\approx
+30\text{--}60
+$$
 
 Это важный отрицательный результат: хороший LM objective на training corruption сам по себе не гарантирует правильного поведения на semantic steering.
 
@@ -294,31 +477,61 @@ Gate должен был позволить сети адаптивно выби
 
 После Gaussian baseline была протестирована альтернативная corruption scheme:
 
-\[
-x_t = t h + (1-t)\epsilon.
-\]
+$$
+x_t
+=
+t h
++
+(1-t)\epsilon
+$$
+
+где
+
+$$
+\epsilon
+\sim
+\mathcal N(0,I)
+$$
 
 В первой версии использовалось:
 
-\[
-t \sim U[0,1].
-\]
+$$
+t \sim U[0,1]
+$$
 
 Архитектура denoiser оставалась residual:
 
-\[
-D(x_t,t)=x_t+\Delta(x_t,t).
-\]
+$$
+D_\theta(x_t,t)
+=
+x_t
++
+\Delta_\theta(x_t,t)
+$$
 
 На сильных corruption модель хорошо восстанавливала activations.
 
-Например при \(t=0.5\) reconstruction error уменьшался примерно в 10 раз.
+Например при $t=0.5$ reconstruction error уменьшался примерно в 10 раз.
 
 Однако near-clean regime оказался нестабильным.
 
-При \(t\rightarrow1\) вход почти совпадает с clean hidden state, но сеть всё равно могла выдавать большую correction.
+При $t\rightarrow1$ вход почти совпадает с clean hidden state, но сеть всё равно могла выдавать большую correction.
 
-В предельном случае при \(t=1\) raw reconstruction error равен нулю, однако denoiser сам сильно портил активацию.
+В предельном случае:
+
+$$
+t=1
+$$
+
+и
+
+$$
+x_1=h
+$$
+
+то есть raw reconstruction error равен нулю.
+
+Однако denoiser сам сильно изменял clean activation.
 
 Этот failure mode показал, что обычной residual parameterization недостаточно.
 
@@ -330,21 +543,27 @@ D(x_t,t)=x_t+\Delta(x_t,t).
 
 Во-первых, training range ограничивается:
 
-\[
-t \sim U[0.5,1].
-\]
+$$
+t \sim U[0.5,1]
+$$
 
-Во-вторых, correction явно масштабируется через \(1-t\):
+Во-вторых, correction явно масштабируется через $1-t$:
 
-\[
-D(x_t,t)=x_t+(1-t)\Delta(x_t,t).
-\]
+$$
+D_\theta(x_t,t)
+=
+x_t
++
+(1-t)\Delta_\theta(x_t,t)
+$$
 
 Это даёт важное свойство:
 
-\[
-D(h,1)=h.
-\]
+$$
+D_\theta(h,1)
+=
+h
+$$
 
 То есть при полностью clean input модель по конструкции не может вносить correction.
 
@@ -352,9 +571,41 @@ D(h,1)=h.
 
 Используется token-wise MLP:
 
-\[
-(768+64)\rightarrow1536\rightarrow1536\rightarrow768.
-\]
+$$
+(768+64)
+\rightarrow
+1536
+\rightarrow
+1536
+\rightarrow
+768
+$$
+
+### Training corruption
+
+$$
+x_t
+=
+t h
++
+(1-t)\epsilon
+$$
+
+где
+
+$$
+\epsilon
+\sim
+\mathcal N(0,I)
+$$
+
+и
+
+$$
+t
+\sim
+U[0.5,1]
+$$
 
 ### Reconstruction results
 
@@ -374,38 +625,140 @@ D(h,1)=h.
 
 ---
 
-## Main result
+## Отображение steering strength в denoiser conditioning
 
-Главный положительный результат получен при:
+Training corruption и реальный steering имеют разную форму.
 
-\[
-\alpha = 24.
-\]
+Training:
 
-Raw steering:
+$$
+x_t
+=
+t h
++
+(1-t)\epsilon
+$$
 
-- Concept score: 7.5621;
-- PPL: 22.2017.
+Steering:
 
-Improved interpolation denoiser:
+$$
+h
++
+\alpha v
+$$
 
-- Concept score: 8.2392;
-- PPL: 21.4873.
+Поэтому для conditioning denoiser используется fixed scale-matching heuristic.
 
-То есть одновременно:
+Сначала вычисляется:
 
-- concept усиливается;
-- perplexity уменьшается.
+$$
+q
+=
+\frac{
+|\alpha|\|v\|_2
+}{
+\mathbb E\|h_7\|_2
+}
+$$
 
-Это является локальным Pareto improvement относительно raw steering.
+После этого:
 
-Важно, что улучшение происходит не за счёт более крупной сети. Архитектура остаётся простой MLP. Основное изменение связано с corruption scheme и архитектурным inductive bias.
+$$
+t_\alpha
+=
+\frac{1}{1+q}
+$$
+
+Значение дополнительно ограничивается training range.
 
 ---
 
-## Основной исследовательский вывод
+# Main result
 
-Эксперименты показывают, что capacity denoiser не является главным bottleneck.
+Главный положительный результат получен при:
+
+$$
+\alpha = 24
+$$
+
+### Raw steering
+
+Concept score:
+
+$$
+7.5621
+$$
+
+PPL:
+
+$$
+22.2017
+$$
+
+### Improved interpolation denoiser
+
+Concept score:
+
+$$
+8.2392
+$$
+
+PPL:
+
+$$
+21.4873
+$$
+
+То есть одновременно:
+
+$$
+7.5621
+\rightarrow
+8.2392
+$$
+
+по concept score и
+
+$$
+22.2017
+\rightarrow
+21.4873
+$$
+
+по perplexity.
+
+Это является локальным Pareto improvement относительно raw steering.
+
+---
+
+## Pareto interpretation
+
+В данной задаче есть две цели:
+
+$$
+\text{Concept score} \uparrow
+$$
+
+и
+
+$$
+\text{PPL} \downarrow
+$$
+
+Одна точка Pareto-доминирует другую, если она не хуже по обеим метрикам и строго лучше хотя бы по одной.
+
+Для $\alpha=24$ denoised point одновременно имеет:
+
+- более высокий concept score;
+- более низкий PPL.
+
+Поэтому он строго доминирует соответствующий raw steering point.
+
+---
+
+# Основной исследовательский вывод
+
+Эксперименты показывают, что capacity denoiser, вероятно, не является главным bottleneck.
 
 Модели способны хорошо восстанавливать hidden states на тех perturbation distributions, на которых они обучались.
 
@@ -413,15 +766,19 @@ Improved interpolation denoiser:
 
 Training perturbations в большинстве экспериментов являются случайными:
 
-\[
-\epsilon \sim \mathcal N(0,\sigma^2 I).
-\]
+$$
+\epsilon
+\sim
+\mathcal N(0,\sigma^2 I)
+$$
 
 Steering perturbation имеет принципиально другую структуру:
 
-\[
-\delta h = \alpha v.
-\]
+$$
+\delta h_{\mathrm{steer}}
+=
+\alpha v
+$$
 
 Она полностью направлена вдоль одного семантически значимого направления.
 
@@ -438,16 +795,34 @@ Steering perturbation имеет принципиально другую стр�
 
 Ключевое изменение:
 
-\[
-D(x_t,t)=x_t+(1-t)\Delta(x_t,t).
-\]
+$$
+D_\theta(x_t,t)
+=
+x_t
++
+(1-t)\Delta_\theta(x_t,t)
+$$
 
-Оно задаёт правильный inductive bias:
+задаёт полезный inductive bias.
+
+При:
+
+$$
+t\rightarrow1
+$$
+
+получаем:
+
+$$
+1-t\rightarrow0
+$$
+
+и therefore correction автоматически уменьшается.
+
+Это соответствует ожидаемому поведению:
 
 - слабое повреждение → слабая correction;
 - сильное повреждение → более сильная correction.
-
-При \(t\rightarrow1\) correction автоматически стремится к нулю.
 
 В предыдущих архитектурах такого ограничения не было, поэтому сеть могла слишком сильно изменять даже почти clean hidden states.
 
@@ -455,7 +830,7 @@ D(x_t,t)=x_t+(1-t)\Delta(x_t,t).
 
 # Структура репозитория
 
-Примерная структура проекта:
+Текущая структура проекта:
 
 ```text
 .
@@ -464,11 +839,3 @@ D(x_t,t)=x_t+(1-t)\Delta(x_t,t).
 ├── report/
 │   └── main.tex
 └── src/
-    ├── train_gaussian_denoiser.py
-    ├── test_gaussian_denoiser.py
-    ├── train_gated_repair.py
-    ├── test_gated_repair.py
-    ├── train_naive_interpolation.py
-    ├── test_naive_interpolation.py
-    ├── train_improved_interpolation.py
-    └── test_improved_interpolation.py
